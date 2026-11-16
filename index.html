@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Magazzino Vini</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Magazzino">
+<meta name="theme-color" content="#7b1e3a">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="icon" href="./icon-180.png">
+<style>
+  :root {
+    --vino: #7b1e3a; --vino-scuro: #5d152c; --sfondo: #f6f2ee; --carta: #ffffff;
+    --testo: #231a1d; --grigio: #7a6f72; --bordo: #e2d9d5; --ok: #1f7a4d; --avviso: #b4620b; --errore: #b3261e;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--sfondo); color: var(--testo);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; font-size: 17px; }
+  body { padding-bottom: env(safe-area-inset-bottom); -webkit-user-select: none; user-select: none; }
+  .schermo { display: none; min-height: 100vh; }
+  .schermo.attivo { display: block; }
+  header { background: var(--vino); color: #fff; padding: calc(env(safe-area-inset-top) + 12px) 16px 12px;
+    display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  .rete { font-size: 13px; opacity: .9; display: flex; align-items: center; gap: 6px; }
+  .pallino { width: 9px; height: 9px; border-radius: 50%; background: #9be7b7; }
+  .pallino.off { background: #ffb3a8; }
+  .pallino.invio { background: #ffe08a; }
+  .ingranaggio { background: none; border: 0; color: #fff; font-size: 22px; padding: 0 0 0 12px; }
+  main { padding: 14px 14px 30px; max-width: 520px; margin: 0 auto; }
+  .etichetta { font-size: 13px; color: var(--grigio); text-transform: uppercase; letter-spacing: .04em; margin: 14px 0 6px; }
+  .etichetta:first-child { margin-top: 0; }
+  .segmenti { display: flex; gap: 6px; }
+  .segmenti button { flex: 1; padding: 13px 4px; border: 1px solid var(--bordo); background: var(--carta);
+    border-radius: 12px; font-size: 15px; color: var(--testo); font-weight: 500; }
+  .segmenti button.sel { background: var(--vino); color: #fff; border-color: var(--vino); }
+  .segmenti.quattro button { font-size: 14px; padding: 12px 2px; }
+  .riga-sposta { display: none; }
+  .riga-sposta.visibile { display: block; }
+  .freccia { text-align: center; color: var(--grigio); font-size: 14px; margin: 6px 0 0; }
+  .barcode { background: var(--carta); border: 2px solid var(--bordo); border-radius: 14px; padding: 12px 14px; min-height: 64px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .barcode.attesa { border-color: var(--vino); border-style: dashed; }
+  .barcode .codice { font-family: ui-monospace, Menlo, monospace; font-size: 22px; letter-spacing: .04em; word-break: break-all; }
+  .barcode .codice.vuoto { color: var(--grigio); font-size: 16px; font-family: inherit; letter-spacing: 0; }
+  .barcode .mano { border: 0; background: var(--sfondo); border-radius: 10px; padding: 8px 10px; font-size: 20px; color: var(--vino); }
+  .nome { margin: 8px 2px 0; min-height: 22px; font-size: 16px; line-height: 1.3; }
+  .nome.ok { color: var(--ok); font-weight: 600; }
+  .nome.avviso { color: var(--avviso); }
+  .quantita { display: flex; align-items: center; gap: 10px; }
+  .quantita .pm { width: 58px; height: 58px; border-radius: 14px; border: 1px solid var(--bordo); background: var(--carta);
+    font-size: 30px; color: var(--vino); line-height: 1; }
+  .quantita .valore { flex: 1; height: 58px; border-radius: 14px; border: 2px solid var(--bordo); background: var(--carta);
+    font-size: 30px; font-weight: 600; text-align: center; line-height: 54px; }
+  .rapidi { display: flex; gap: 6px; margin-top: 8px; }
+  .rapidi button { flex: 1; padding: 9px; border-radius: 10px; border: 1px solid var(--bordo); background: var(--carta); font-size: 15px; }
+  .bottiglie { margin: 6px 2px 0; color: var(--grigio); font-size: 14px; min-height: 18px; }
+  .salva { width: 100%; margin-top: 18px; padding: 18px; border: 0; border-radius: 16px; background: var(--vino); color: #fff;
+    font-size: 20px; font-weight: 700; letter-spacing: .02em; }
+  .salva:active { background: var(--vino-scuro); }
+  .salva[disabled] { opacity: .45; }
+  .stato { margin-top: 20px; background: var(--carta); border: 1px solid var(--bordo); border-radius: 14px; padding: 12px 14px; font-size: 15px; }
+  .stato .r { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; }
+  .stato .r + .r { border-top: 1px solid var(--bordo); margin-top: 4px; padding-top: 8px; }
+  .stato button { border: 1px solid var(--vino); color: var(--vino); background: #fff; border-radius: 10px; padding: 7px 12px; font-size: 14px; font-weight: 600; }
+  .badge { background: var(--avviso); color: #fff; border-radius: 20px; padding: 2px 9px; font-size: 13px; font-weight: 700; }
+  .badge.zero { background: var(--ok); }
+  .ultimi { margin-top: 16px; }
+  .ultimi .voce { background: var(--carta); border: 1px solid var(--bordo); border-radius: 12px; padding: 9px 12px; margin-bottom: 7px;
+    display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .ultimi .voce .info { flex: 1; min-width: 0; }
+  .ultimi .voce .t1 { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ultimi .voce .t2 { color: var(--grigio); font-size: 13px; }
+  .ultimi .voce .q { font-size: 18px; font-weight: 700; }
+  .ultimi .voce .x { border: 0; background: #fbe9e7; color: var(--errore); border-radius: 10px; width: 36px; height: 36px; font-size: 18px; }
+  .ultimi .voce .spunta { color: var(--ok); font-size: 18px; width: 24px; text-align: center; }
+  .ultimi .voce .orologio { color: var(--avviso); font-size: 16px; width: 24px; text-align: center; }
+  .vuoto { color: var(--grigio); font-size: 14px; text-align: center; padding: 10px; }
+
+  /* schermata PIN e setup */
+  .centro { max-width: 420px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 40px) 24px 30px; text-align: center; }
+  .centro h2 { color: var(--vino); margin: 0 0 6px; }
+  .centro p { color: var(--grigio); margin: 0 0 22px; font-size: 15px; }
+  .punti { display: flex; justify-content: center; gap: 14px; margin: 10px 0 24px; height: 18px; }
+  .punti span { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--vino); }
+  .punti span.pieno { background: var(--vino); }
+  .punti.errore span { border-color: var(--errore); background: var(--errore); }
+  .tastierino { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .tastierino button { height: 64px; border-radius: 16px; border: 1px solid var(--bordo); background: var(--carta); font-size: 26px; font-weight: 500; }
+  .tastierino button.secondario { font-size: 17px; color: var(--vino); font-weight: 600; }
+  .tastierino button:active { background: #eee3df; }
+  .link { background: none; border: 0; color: var(--vino); font-size: 15px; margin-top: 26px; text-decoration: underline; }
+  .campo { text-align: left; margin-bottom: 14px; }
+  .campo label { display: block; font-size: 13px; color: var(--grigio); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+  .campo input { width: 100%; padding: 13px; border: 1px solid var(--bordo); border-radius: 12px; font-size: 16px; background: var(--carta);
+    -webkit-user-select: text; user-select: text; }
+  .primario { width: 100%; padding: 16px; border: 0; border-radius: 14px; background: var(--vino); color: #fff; font-size: 18px; font-weight: 700; margin-top: 8px; }
+  .msg { min-height: 22px; font-size: 14px; margin-top: 12px; color: var(--errore); }
+  .msg.ok { color: var(--ok); }
+
+  /* tastierino a comparsa */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 20; align-items: flex-end; }
+  .overlay.aperto { display: flex; }
+  .foglio { background: var(--sfondo); width: 100%; border-radius: 20px 20px 0 0; padding: 16px 16px calc(env(safe-area-inset-bottom) + 16px); }
+  .foglio .titolo { font-size: 14px; color: var(--grigio); text-transform: uppercase; letter-spacing: .04em; }
+  .foglio .display { background: var(--carta); border: 2px solid var(--vino); border-radius: 14px; font-size: 30px; font-weight: 600; text-align: center;
+    padding: 10px; margin: 8px 0 12px; min-height: 60px; font-family: ui-monospace, Menlo, monospace; word-break: break-all; }
+  .foglio .tastierino button { height: 58px; }
+  .foglio .ok { width: 100%; margin-top: 10px; padding: 15px; border: 0; border-radius: 14px; background: var(--vino); color: #fff; font-size: 18px; font-weight: 700; }
+
+  #toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translateX(-50%) translateY(20px);
+    background: #2b2124; color: #fff; padding: 12px 18px; border-radius: 14px; font-size: 15px; opacity: 0; transition: .25s; z-index: 30;
+    max-width: 90vw; text-align: center; pointer-events: none; }
+  #toast.visibile { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .scuoti { animation: scuoti .35s; }
+  @keyframes scuoti { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-8px) } 75% { transform: translateX(8px) } }
+</style>
+</head>
+<body>
+
+<!-- ===================== SETUP (prima apertura) ===================== -->
+<div id="schermo-setup" class="schermo">
+  <div class="centro">
+    <h2>Collega l'app</h2>
+    <p>Serve una volta sola, con la rete. Incolla l'indirizzo dello script Google e scrivi il PIN.</p>
+    <div class="campo"><label>Indirizzo dello script (finisce con /exec)</label>
+      <input id="setup-url" type="url" inputmode="url" autocapitalize="off" autocorrect="off" placeholder="https://script.google.com/macros/s/.../exec"></div>
+    <div class="campo"><label>PIN</label>
+      <input id="setup-pin" type="password" inputmode="numeric" placeholder="lo stesso del Code.gs"></div>
+    <div class="campo"><label>Nome di questo telefono</label>
+      <input id="setup-disp" type="text" placeholder="iPhone Agostino"></div>
+    <button class="primario" id="setup-ok">Collega</button>
+    <div class="msg" id="setup-msg"></div>
+    <button class="link" id="setup-annulla" style="display:none">Annulla</button>
+  </div>
+</div>
+
+<!-- ===================== PIN ===================== -->
+<div id="schermo-pin" class="schermo">
+  <div class="centro">
+    <h2>Magazzino Vini</h2>
+    <p>Inserisci il PIN</p>
+    <div class="punti" id="pin-punti"></div>
+    <div class="tastierino" id="pin-tasti"></div>
+    <button class="link" id="pin-setup">Cambia collegamento</button>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="schermo-app" class="schermo">
+  <header>
+    <h1>Magazzino Vini</h1>
+    <div style="display:flex;align-items:center">
+      <div class="rete"><span class="pallino" id="pallino"></span><span id="rete-testo">in rete</span></div>
+      <button class="ingranaggio" id="apri-setup" aria-label="Impostazioni">&#9881;</button>
+    </div>
+  </header>
+  <main>
+    <div class="etichetta" id="etichetta-locale">Locale</div>
+    <div class="segmenti" id="locali"></div>
+
+    <div class="etichetta">Tipo movimento</div>
+    <div class="segmenti quattro" id="tipi"></div>
+
+    <div class="riga-sposta" id="riga-sposta">
+      <div class="etichetta">Spostamento: da quale locale</div>
+      <div class="segmenti" id="locali-da"></div>
+      <div class="freccia" id="freccia"></div>
+    </div>
+
+    <div class="etichetta">Barcode</div>
+    <div class="barcode attesa" id="box-barcode">
+      <div class="codice vuoto" id="codice">In attesa del lettore…</div>
+      <button class="mano" id="barcode-mano" aria-label="Scrivi a mano">&#9000;</button>
+    </div>
+    <div class="nome" id="nome"></div>
+
+    <div class="etichetta">Quantità (confezioni scansionate)</div>
+    <div class="quantita">
+      <button class="pm" id="meno">&minus;</button>
+      <div class="valore" id="qta">1</div>
+      <button class="pm" id="piu">+</button>
+    </div>
+    <div class="rapidi" id="rapidi"></div>
+    <div class="bottiglie" id="bottiglie"></div>
+
+    <button class="salva" id="salva">SALVA</button>
+
+    <div class="stato">
+      <div class="r"><span>Da inviare al foglio Google</span><span style="display:flex;gap:10px;align-items:center"><span class="badge zero" id="n-coda">0</span><button id="invia-ora">Invia ora</button></span></div>
+      <div class="r"><span id="elenco-info">Elenco vini: non ancora scaricato</span><button id="aggiorna-elenco">&#8635; Aggiorna</button></div>
+    </div>
+
+    <div class="etichetta">Ultime scansioni</div>
+    <div class="ultimi" id="ultimi"></div>
+  </main>
+</div>
+
+<!-- ===================== TASTIERINO A COMPARSA ===================== -->
+<div class="overlay" id="overlay">
+  <div class="foglio">
+    <div class="titolo" id="ov-titolo">Quantità</div>
+    <div class="display" id="ov-display">1</div>
+    <div class="tastierino" id="ov-tasti"></div>
+    <button class="ok" id="ov-ok">OK</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<!-- campo invisibile: tiene il "cursore" pronto per il lettore Bluetooth (inputmode=none: niente tastiera a schermo) -->
+<input id="catcher" type="text" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true" tabindex="-1"
+       style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0;pointer-events:none">
+
+<script>
+(function () {
+  "use strict";
+
+  // ------------------------------------------------------------------
+  // Dati fissi
+  // ------------------------------------------------------------------
+  var LOCALI = ["Gente di Mare", "Il Falco", "A Pesci in Faccia"];
+  var CORTI  = { "Gente di Mare": "GdM", "Il Falco": "Falco", "A Pesci in Faccia": "APiF" };
+  var TIPI   = [["inventario", "Inventario"], ["spostamento", "Spostamento"], ["rottura", "Rottura"], ["carico", "Carico"]];
+  var RAPIDI = [1, 6, 12, 24];
+  var MAX_ULTIMI = 20;
+
+  // ------------------------------------------------------------------
+  // Memoria sul telefono (localStorage)
+  // ------------------------------------------------------------------
+  function leggi(chiave, def) {
+    try { var v = localStorage.getItem("mv_" + chiave); return v ? JSON.parse(v) : def; } catch (e) { return def; }
+  }
+  function scrivi(chiave, val) {
+    try { localStorage.setItem("mv_" + chiave, JSON.stringify(val)); } catch (e) { toast("Memoria del telefono piena o bloccata"); }
+  }
+
+  var cfg    = leggi("cfg", null);                         // {url, pin, dispositivo}
+  var sel    = leggi("sel", { locale: LOCALI[0], tipo: "inventario", locale_da: LOCALI[0] });
+  var elenco = leggi("elenco", { aggiornato: "", mappa: {} }); // mappa: codice -> [nome, pezzi]
+  var righe  = leggi("righe", []);                         // scansioni salvate sul telefono
+  var corrente = { barcode: "", quantita: 1 };
+  var inviando = false, sbloccata = false;
+
+  // ------------------------------------------------------------------
+  // Utilità
+  // ------------------------------------------------------------------
+  var $ = function (id) { return document.getElementById(id); };
+  function p2(n) { return (n < 10 ? "0" : "") + n; }
+  function adessoLocale() {   // 2026-11-15T18:05:12+01:00 (ora del telefono, con fuso)
+    var d = new Date(), off = -d.getTimezoneOffset(), s = off >= 0 ? "+" : "-"; off = Math.abs(off);
+    return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()) + "T" + p2(d.getHours()) + ":" + p2(d.getMinutes()) + ":" + p2(d.getSeconds()) + s + p2(Math.floor(off / 60)) + ":" + p2(off % 60);
+  }
+  function nuovoId() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  }
+  var toastTimer;
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.classList.add("visibile");
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove("visibile"); }, 2200);
+  }
+  function mostra(id) {
+    ["schermo-setup", "schermo-pin", "schermo-app"].forEach(function (s) { $(s).classList.toggle("attivo", s === id); });
+    window.scrollTo(0, 0);
+  }
+  function pulisciUrl(u) {
+    u = (u || "").trim();
+    var m = u.match(/^https:\/\/script\.google\.com\/macros\/s\/[^\/]+\/exec/);
+    return m ? m[0] : u;
+  }
+
+  // ------------------------------------------------------------------
+  // Chiamate allo script Google
+  // ------------------------------------------------------------------
+  function chiama(metodo, dati, c) {
+    c = c || cfg;
+    var ctrl = new AbortController(), timer = setTimeout(function () { ctrl.abort(); }, 25000);
+    var prom;
+    if (metodo === "GET") {
+      var q = new URLSearchParams(Object.assign({ pin: c.pin }, dati));
+      prom = fetch(c.url + "?" + q.toString(), { signal: ctrl.signal, cache: "no-store" });
+    } else {
+      // corpo testo semplice: niente controlli CORS aggiuntivi, Apps Script lo legge in e.postData.contents
+      prom = fetch(c.url, { method: "POST", body: JSON.stringify(Object.assign({ pin: c.pin }, dati)), signal: ctrl.signal });
+    }
+    return prom.then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.ok) throw new Error((j && j.errore) || "risposta non valida dello script");
+      return j;
+    }).finally(function () { clearTimeout(timer); });
+  }
+
+  // ------------------------------------------------------------------
+  // Rete / invio
+  // ------------------------------------------------------------------
+  function setRete(stato) {
+    var pal = $("pallino"), txt = $("rete-testo");
+    pal.className = "pallino" + (stato === "off" ? " off" : stato === "invio" ? " invio" : "");
+    txt.textContent = stato === "off" ? "senza rete" : stato === "invio" ? "invio…" : "in rete";
+  }
+  function aggiornaRete() { setRete(navigator.onLine ? "on" : "off"); }
+
+  function coda() { return righe.filter(function (r) { return !r.inviata; }); }
+
+  function invia(manuale) {
+    var daInviare = coda();
+    renderStato();
+    if (!daInviare.length) { if (manuale) toast("Niente da inviare"); return Promise.resolve(); }
+    if (inviando || !cfg) return Promise.resolve();
+    if (!navigator.onLine) { if (manuale) toast("Senza rete: le scansioni restano salvate sul telefono"); return Promise.resolve(); }
+    inviando = true; setRete("invio");
+    var pacchetto = daInviare.slice(0, 100).map(function (r) {
+      return { id: r.id, data_ora: r.data_ora, locale: r.locale, tipo: r.tipo, barcode: r.barcode,
+               quantita: r.quantita, locale_da: r.locale_da || "", dispositivo: cfg.dispositivo || "" };
+    });
+    var ids = pacchetto.map(function (r) { return r.id; });
+    return chiama("POST", { action: "salva", righe: pacchetto }).catch(function (errPost) {
+      // Risposta non leggibile (rete caduta a metà, o il browser non lascia leggere la risposta):
+      // prima di riprovare chiedo al foglio quali scansioni sono arrivate davvero, così non si duplicano.
+      return verificaArrivate(ids).then(function (presenti) {
+        if (!presenti.length) throw errPost;
+        return { salvate: presenti, gia_presenti: [] };
+      });
+    }).then(function (res) {
+      var ok = {};
+      (res.salvate || []).concat(res.gia_presenti || []).forEach(function (id) { ok[id] = true; });
+      var n = 0;
+      righe.forEach(function (r) { if (!r.inviata && ok[r.id]) { r.inviata = true; n++; } });
+      pota(); scrivi("righe", righe);
+      inviando = false; aggiornaRete(); renderStato(); renderUltimi();
+      if (coda().length) return invia(false);
+      if (n) toast("Inviate " + n + " scansioni al foglio Google");
+    }).catch(function (e) {
+      inviando = false; aggiornaRete(); renderStato();
+      if (manuale) toast("Invio non riuscito: " + e.message);
+    });
+  }
+
+  function verificaArrivate(ids) {
+    var gruppi = [];
+    for (var i = 0; i < ids.length; i += 40) gruppi.push(ids.slice(i, i + 40));
+    return gruppi.reduce(function (catena, gruppo) {
+      return catena.then(function (acc) {
+        return chiama("GET", { action: "verifica", ids: gruppo.join(",") }).then(function (res) { return acc.concat(res.presenti || []); });
+      });
+    }, Promise.resolve([]));
+  }
+
+  // tiene nel telefono solo le ultime MAX_ULTIMI già inviate (quelle da inviare restano sempre)
+  function pota() {
+    var inviate = righe.filter(function (r) { return r.inviata; });
+    if (inviate.length > MAX_ULTIMI) {
+      var daTogliere = {};
+      inviate.slice(0, inviate.length - MAX_ULTIMI).forEach(function (r) { daTogliere[r.id] = true; });
+      righe = righe.filter(function (r) { return !daTogliere[r.id]; });
+    }
+  }
+
+  function aggiornaElenco(manuale) {
+    if (!cfg || !navigator.onLine) { if (manuale) toast("Senza rete: uso l'elenco già sul telefono"); return Promise.resolve(); }
+    return chiama("GET", { action: "lista" }).then(function (res) {
+      var mappa = {};
+      (res.lista || []).forEach(function (r) { mappa[String(r[0])] = [String(r[1] || ""), Number(r[2]) || 1]; });
+      elenco = { aggiornato: res.aggiornato || "", scaricato: adessoLocale(), mappa: mappa };
+      scrivi("elenco", elenco);
+      renderStato(); renderBarcode();
+      if (manuale) toast("Elenco aggiornato: " + Object.keys(mappa).length + " codici");
+    }).catch(function (e) { if (manuale) toast("Elenco non aggiornato: " + e.message); });
+  }
+
+  // ------------------------------------------------------------------
+  // Lettore barcode (tastiera Bluetooth): ascolta i tasti ovunque sia il cursore
+  // ------------------------------------------------------------------
+  var buf = "", bufTimer = null;
+  window.addEventListener("keydown", function (e) {
+    if (!sbloccata || !$("schermo-app").classList.contains("attivo")) return;
+    if ($("overlay").classList.contains("aperto")) return;
+    if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); if (buf) chiudiLettura(); return; }
+    if (e.key && e.key.length === 1 && /[0-9A-Za-z\-]/.test(e.key)) {
+      e.preventDefault();
+      buf += e.key;
+      mostraParziale();
+      clearTimeout(bufTimer);
+      bufTimer = setTimeout(function () { if (buf.length >= 6) chiudiLettura(); }, 300);
+    }
+  });
+  function mostraParziale() {
+    var c = $("codice"); c.textContent = buf; c.className = "codice";
+  }
+  // riporta il cursore sul campo invisibile, così il lettore scrive sempre lì
+  function rifocalizza() {
+    if (!sbloccata || $("overlay").classList.contains("aperto")) return;
+    var c = $("catcher");
+    if (document.activeElement !== c) { try { c.focus({ preventScroll: true }); } catch (e) { c.focus(); } }
+  }
+  $("catcher").addEventListener("input", function () { this.value = ""; });
+  document.addEventListener("click", function () { setTimeout(rifocalizza, 50); });
+  function chiudiLettura() {
+    clearTimeout(bufTimer);
+    var codice = buf; buf = "";
+    impostaBarcode(codice);
+  }
+  function impostaBarcode(codice) {
+    corrente.barcode = String(codice || "").trim();
+    renderBarcode();
+    if (corrente.barcode && navigator.vibrate) navigator.vibrate(30);
+  }
+  function prodottoDi(codice) {
+    var v = elenco.mappa[codice];
+    return v ? { nome: v[0], pezzi: v[1] } : null;
+  }
+
+  // ------------------------------------------------------------------
+  // Salvataggio di una scansione
+  // ------------------------------------------------------------------
+  function salvaScansione() {
+    if (!corrente.barcode) { toast("Scansiona prima un barcode"); scuoti($("box-barcode")); return; }
+    if (!(corrente.quantita > 0)) { toast("La quantità deve essere almeno 1"); return; }
+    if (sel.tipo === "spostamento" && sel.locale_da === sel.locale) { toast("Spostamento: scegli due locali diversi"); return; }
+    var pr = prodottoDi(corrente.barcode);
+    var r = {
+      id: nuovoId(), data_ora: adessoLocale(), locale: sel.locale, tipo: sel.tipo,
+      barcode: corrente.barcode, quantita: corrente.quantita,
+      locale_da: sel.tipo === "spostamento" ? sel.locale_da : "",
+      nome: pr ? pr.nome : "", pezzi: pr ? pr.pezzi : 1, inviata: false
+    };
+    righe.push(r); scrivi("righe", righe);
+    corrente = { barcode: "", quantita: 1 };
+    renderBarcode(); renderQuantita(); renderStato(); renderUltimi();
+    toast("Salvato sul telefono" + (navigator.onLine ? "" : " (invio appena c'è rete)"));
+    invia(false);
+  }
+  function eliminaScansione(id) {
+    var r = righe.filter(function (x) { return x.id === id; })[0];
+    if (!r || r.inviata) return;
+    righe = righe.filter(function (x) { return x.id !== id; });
+    scrivi("righe", righe); renderStato(); renderUltimi();
+    toast("Scansione eliminata");
+  }
+  function scuoti(el) { el.classList.remove("scuoti"); void el.offsetWidth; el.classList.add("scuoti"); }
+
+  // ------------------------------------------------------------------
+  // Disegno dell'interfaccia
+  // ------------------------------------------------------------------
+  function segmenti(contenitore, voci, valore, onSel) {
+    var box = $(contenitore); box.innerHTML = "";
+    voci.forEach(function (v) {
+      var val = Array.isArray(v) ? v[0] : v, lab = Array.isArray(v) ? v[1] : v;
+      var b = document.createElement("button");
+      b.type = "button"; b.textContent = lab; b.className = val === valore ? "sel" : "";
+      b.addEventListener("click", function () { onSel(val); });
+      box.appendChild(b);
+    });
+  }
+  function renderSelettori() {
+    segmenti("locali", LOCALI, sel.locale, function (v) { sel.locale = v; scrivi("sel", sel); renderSelettori(); });
+    segmenti("tipi", TIPI, sel.tipo, function (v) { sel.tipo = v; scrivi("sel", sel); renderSelettori(); });
+    segmenti("locali-da", LOCALI, sel.locale_da, function (v) { sel.locale_da = v; scrivi("sel", sel); renderSelettori(); });
+    var sposta = sel.tipo === "spostamento";
+    $("riga-sposta").classList.toggle("visibile", sposta);
+    $("etichetta-locale").textContent = sposta ? "Locale di arrivo" : "Locale";
+    $("freccia").textContent = sposta ? (sel.locale_da + "  →  " + sel.locale) : "";
+  }
+  function renderBarcode() {
+    var c = $("codice"), n = $("nome"), box = $("box-barcode");
+    if (!corrente.barcode) {
+      c.textContent = "In attesa del lettore…"; c.className = "codice vuoto"; n.textContent = ""; n.className = "nome";
+      box.classList.add("attesa");
+    } else {
+      c.textContent = corrente.barcode; c.className = "codice"; box.classList.remove("attesa");
+      var pr = prodottoDi(corrente.barcode);
+      if (pr) {
+        n.textContent = pr.nome + (pr.pezzi > 1 ? "  ·  confezione da " + pr.pezzi : "");
+        n.className = "nome ok";
+      } else {
+        n.textContent = "Codice non in elenco: lo salvo lo stesso, poi lo colleghi al vino sul PC.";
+        n.className = "nome avviso";
+      }
+    }
+    renderQuantita();
+  }
+  function renderQuantita() {
+    $("qta").textContent = corrente.quantita;
+    var pr = corrente.barcode ? prodottoDi(corrente.barcode) : null;
+    var pezzi = pr ? pr.pezzi : 1;
+    $("bottiglie").textContent = pezzi > 1 ? ("= " + (corrente.quantita * pezzi) + " bottiglie") : "";
+  }
+  function renderStato() {
+    var n = coda().length;
+    var b = $("n-coda"); b.textContent = n; b.className = "badge" + (n ? "" : " zero");
+    var k = Object.keys(elenco.mappa).length;
+    var info = $("elenco-info");
+    if (!k) info.textContent = "Elenco vini: non ancora scaricato";
+    else info.textContent = "Elenco vini: " + k + " codici" + (elenco.scaricato ? " (del " + elenco.scaricato.slice(8, 10) + "/" + elenco.scaricato.slice(5, 7) + " " + elenco.scaricato.slice(11, 16) + ")" : "");
+  }
+  function renderUltimi() {
+    var box = $("ultimi"); box.innerHTML = "";
+    var ultime = righe.slice(-MAX_ULTIMI).reverse();
+    if (!ultime.length) { box.innerHTML = '<div class="vuoto">Nessuna scansione ancora.</div>'; return; }
+    ultime.forEach(function (r) {
+      var v = document.createElement("div"); v.className = "voce";
+      var tipo = r.tipo === "spostamento" ? "spostamento " + CORTI[r.locale_da] + " → " + CORTI[r.locale] : r.tipo + " · " + CORTI[r.locale];
+      var pezzi = r.pezzi > 1 ? " (" + (r.quantita * r.pezzi) + " bott.)" : "";
+      v.innerHTML =
+        '<div class="' + (r.inviata ? "spunta" : "orologio") + '">' + (r.inviata ? "✓" : "⏳") + "</div>" +
+        '<div class="info"><div class="t1"></div><div class="t2"></div></div>' +
+        '<div class="q"></div>';
+      v.querySelector(".t1").textContent = r.nome || r.barcode;
+      v.querySelector(".t2").textContent = r.data_ora.slice(11, 16) + " · " + tipo + (r.nome ? " · " + r.barcode : "");
+      v.querySelector(".q").textContent = r.quantita + pezzi;
+      if (!r.inviata) {
+        var x = document.createElement("button"); x.className = "x"; x.textContent = "✕"; x.setAttribute("aria-label", "Elimina");
+        x.addEventListener("click", function () { eliminaScansione(r.id); });
+        v.appendChild(x);
+      }
+      box.appendChild(v);
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Tastierino a comparsa (quantità o barcode a mano)
+  // ------------------------------------------------------------------
+  var ov = { valore: "", onOk: null, max: 4 };
+  function apriTastierino(titolo, valore, max, onOk) {
+    ov = { valore: String(valore || ""), onOk: onOk, max: max };
+    $("ov-titolo").textContent = titolo; $("ov-display").textContent = ov.valore || " ";
+    $("overlay").classList.add("aperto");
+  }
+  function chiudiTastierino() { $("overlay").classList.remove("aperto"); }
+  function tastierino(contenitore, onTasto, labelSx, labelDx) {
+    var box = $(contenitore); box.innerHTML = "";
+    ["1", "2", "3", "4", "5", "6", "7", "8", "9", labelSx, "0", labelDx].forEach(function (t) {
+      var b = document.createElement("button"); b.type = "button"; b.textContent = t;
+      if (t === labelSx || t === labelDx) b.className = "secondario";
+      b.addEventListener("click", function () { onTasto(t); });
+      box.appendChild(b);
+    });
+  }
+  tastierino("ov-tasti", function (t) {
+    if (t === "C") ov.valore = "";
+    else if (t === "⌫") ov.valore = ov.valore.slice(0, -1);
+    else if (ov.valore.length < ov.max) ov.valore += t;
+    $("ov-display").textContent = ov.valore || " ";
+  }, "C", "⌫");
+  $("ov-ok").addEventListener("click", function () { chiudiTastierino(); if (ov.onOk) ov.onOk(ov.valore); });
+  $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) chiudiTastierino(); });
+
+  // ------------------------------------------------------------------
+  // Schermata PIN
+  // ------------------------------------------------------------------
+  var pinDigitato = "";
+  function renderPin(errore) {
+    var box = $("pin-punti"); box.innerHTML = ""; box.className = "punti" + (errore ? " errore" : "");
+    var n = cfg ? String(cfg.pin).length : 4;
+    for (var i = 0; i < n; i++) { var s = document.createElement("span"); if (i < pinDigitato.length) s.className = "pieno"; box.appendChild(s); }
+  }
+  tastierino("pin-tasti", function (t) {
+    if (t === "C") { pinDigitato = ""; renderPin(); return; }
+    if (t === "⌫") { pinDigitato = pinDigitato.slice(0, -1); renderPin(); return; }
+    if (!cfg) return;
+    if (pinDigitato.length >= String(cfg.pin).length) return;
+    pinDigitato += t; renderPin();
+    if (pinDigitato.length === String(cfg.pin).length) {
+      if (pinDigitato === String(cfg.pin)) { pinDigitato = ""; sblocca(); }
+      else { renderPin(true); setTimeout(function () { pinDigitato = ""; renderPin(); }, 500); }
+    }
+  }, "C", "⌫");
+  $("pin-setup").addEventListener("click", function () { apriSetup(true); });
+
+  function sblocca() {
+    sbloccata = true; mostra("schermo-app");
+    renderSelettori(); renderBarcode(); renderStato(); renderUltimi(); aggiornaRete(); rifocalizza();
+    aggiornaElenco(false).then(function () { return invia(false); });
+  }
+
+  // ------------------------------------------------------------------
+  // Schermata di setup
+  // ------------------------------------------------------------------
+  function apriSetup(annullabile) {
+    sbloccata = false;
+    $("setup-url").value = cfg ? cfg.url : "";
+    $("setup-pin").value = cfg ? cfg.pin : "";
+    $("setup-disp").value = cfg ? (cfg.dispositivo || "") : "iPhone";
+    $("setup-msg").textContent = ""; $("setup-msg").className = "msg";
+    $("setup-annulla").style.display = (annullabile && cfg) ? "inline" : "none";
+    mostra("schermo-setup");
+  }
+  $("setup-annulla").addEventListener("click", function () { pinDigitato = ""; renderPin(); mostra("schermo-pin"); });
+  $("setup-ok").addEventListener("click", function () {
+    var c = { url: pulisciUrl($("setup-url").value), pin: $("setup-pin").value.trim(), dispositivo: $("setup-disp").value.trim() || "iPhone" };
+    var msg = $("setup-msg"); msg.className = "msg";
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(c.url) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(c.url)) {
+      msg.textContent = "L'indirizzo deve essere quello dell'app web di Apps Script, che finisce con /exec."; return;
+    }
+    if (!/^[0-9]{4,8}$/.test(c.pin)) { msg.textContent = "Il PIN deve avere da 4 a 8 cifre."; return; }
+    if (!navigator.onLine) { msg.textContent = "Serve la rete per il primo collegamento."; return; }
+    msg.textContent = "Controllo il collegamento…"; $("setup-ok").disabled = true;
+    chiama("GET", { action: "ping" }, c).then(function () {
+      cfg = c; scrivi("cfg", cfg);
+      msg.className = "msg ok"; msg.textContent = "Collegato!";
+      setTimeout(function () { $("setup-ok").disabled = false; sblocca(); }, 400);
+    }).catch(function (e) {
+      $("setup-ok").disabled = false;
+      msg.textContent = "Non riesco a collegarmi: " + e.message + ". Controlla indirizzo, PIN e che l'app web sia pubblicata per “Chiunque”.";
+    });
+  });
+  $("apri-setup").addEventListener("click", function () { apriSetup(true); });
+
+  // ------------------------------------------------------------------
+  // Pulsanti della schermata principale
+  // ------------------------------------------------------------------
+  $("meno").addEventListener("click", function () { if (corrente.quantita > 1) { corrente.quantita--; renderQuantita(); } });
+  $("piu").addEventListener("click", function () { corrente.quantita++; renderQuantita(); });
+  $("qta").addEventListener("click", function () {
+    apriTastierino("Quantità", "", 4, function (v) { var n = parseInt(v, 10); if (n > 0) { corrente.quantita = n; renderQuantita(); } });
+  });
+  var rap = $("rapidi");
+  RAPIDI.forEach(function (n) {
+    var b = document.createElement("button"); b.type = "button"; b.textContent = n;
+    b.addEventListener("click", function () { corrente.quantita = n; renderQuantita(); });
+    rap.appendChild(b);
+  });
+  $("barcode-mano").addEventListener("click", function () {
+    apriTastierino("Barcode a mano", corrente.barcode, 20, function (v) { if (v) impostaBarcode(v); });
+  });
+  $("box-barcode").addEventListener("click", function (e) {
+    if (e.target.id !== "barcode-mano" && corrente.barcode) { impostaBarcode(""); }
+  });
+  $("salva").addEventListener("click", salvaScansione);
+  $("invia-ora").addEventListener("click", function () { invia(true); });
+  $("aggiorna-elenco").addEventListener("click", function () { aggiornaElenco(true); });
+
+  window.addEventListener("online", function () { aggiornaRete(); if (sbloccata) invia(false); });
+  window.addEventListener("offline", aggiornaRete);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && sbloccata) { aggiornaRete(); invia(false); }
+  });
+  setInterval(function () { if (sbloccata && coda().length) invia(false); }, 60000);
+
+  // ------------------------------------------------------------------
+  // Avvio
+  // ------------------------------------------------------------------
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(function () {});
+  }
+  if (!cfg) apriSetup(false);
+  else { renderPin(); mostra("schermo-pin"); }
+})();
+</script>
+</body>
+</html>
