@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Magazzino Vini</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Magazzino">
+<meta name="theme-color" content="#7b1e3a">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="icon" href="./icon-180.png">
+<style>
+  :root {
+    --vino: #7b1e3a; --vino-scuro: #5d152c; --sfondo: #f6f2ee; --carta: #ffffff;
+    --testo: #231a1d; --grigio: #7a6f72; --bordo: #e2d9d5; --ok: #1f7a4d; --avviso: #b4620b; --errore: #b3261e;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--sfondo); color: var(--testo);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; font-size: 17px; }
+  body { padding-bottom: env(safe-area-inset-bottom); -webkit-user-select: none; user-select: none; }
+  .schermo { display: none; min-height: 100vh; }
+  .schermo.attivo { display: block; }
+  header { background: var(--vino); color: #fff; padding: calc(env(safe-area-inset-top) + 12px) 16px 12px;
+    display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  .rete { font-size: 13px; opacity: .9; display: flex; align-items: center; gap: 6px; }
+  .pallino { width: 9px; height: 9px; border-radius: 50%; background: #9be7b7; }
+  .pallino.off { background: #ffb3a8; }
+  .pallino.invio { background: #ffe08a; }
+  .ingranaggio { background: none; border: 0; color: #fff; font-size: 22px; padding: 0 0 0 12px; }
+  main { padding: 14px 14px 30px; max-width: 520px; margin: 0 auto; }
+  .etichetta { font-size: 13px; color: var(--grigio); text-transform: uppercase; letter-spacing: .04em; margin: 14px 0 6px; }
+  .etichetta:first-child { margin-top: 0; }
+  .segmenti { display: flex; gap: 6px; }
+  .segmenti button { flex: 1; padding: 13px 4px; border: 1px solid var(--bordo); background: var(--carta);
+    border-radius: 12px; font-size: 15px; color: var(--testo); font-weight: 500; }
+  .segmenti button.sel { background: var(--vino); color: #fff; border-color: var(--vino); }
+  .segmenti.quattro button { font-size: 14px; padding: 12px 2px; }
+  .riga-sposta { display: none; }
+  .riga-sposta.visibile { display: block; }
+  .freccia { text-align: center; color: var(--grigio); font-size: 14px; margin: 6px 0 0; }
+  .barcode { background: var(--carta); border: 2px solid var(--bordo); border-radius: 14px; padding: 12px 14px; min-height: 64px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .barcode.attesa { border-color: var(--vino); border-style: dashed; }
+  .barcode .codice { font-family: ui-monospace, Menlo, monospace; font-size: 22px; letter-spacing: .04em; word-break: break-all; }
+  .barcode .codice.vuoto { color: var(--grigio); font-size: 16px; font-family: inherit; letter-spacing: 0; }
+  .barcode .mano { border: 0; background: var(--sfondo); border-radius: 10px; padding: 8px 10px; font-size: 20px; color: var(--vino); }
+  .nome { margin: 8px 2px 0; min-height: 22px; font-size: 16px; line-height: 1.3; }
+  .nome.ok { color: var(--ok); font-weight: 600; }
+  .nome.avviso { color: var(--avviso); }
+  .quantita { display: flex; align-items: center; gap: 10px; }
+  .quantita .pm { width: 58px; height: 58px; border-radius: 14px; border: 1px solid var(--bordo); background: var(--carta);
+    font-size: 30px; color: var(--vino); line-height: 1; }
+  .quantita .valore { flex: 1; height: 58px; border-radius: 14px; border: 2px solid var(--bordo); background: var(--carta);
+    font-size: 30px; font-weight: 600; text-align: center; line-height: 54px; }
+  .rapidi { display: flex; gap: 6px; margin-top: 8px; }
+  .rapidi button { flex: 1; padding: 9px; border-radius: 10px; border: 1px solid var(--bordo); background: var(--carta); font-size: 15px; }
+  .bottiglie { margin: 6px 2px 0; color: var(--grigio); font-size: 14px; min-height: 18px; }
+  .salva { width: 100%; margin-top: 18px; padding: 18px; border: 0; border-radius: 16px; background: var(--vino); color: #fff;
+    font-size: 20px; font-weight: 700; letter-spacing: .02em; }
+  .salva:active { background: var(--vino-scuro); }
+  .salva[disabled] { opacity: .45; }
+  .stato { margin-top: 20px; background: var(--carta); border: 1px solid var(--bordo); border-radius: 14px; padding: 12px 14px; font-size: 15px; }
+  .stato .r { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; }
+  .stato .r + .r { border-top: 1px solid var(--bordo); margin-top: 4px; padding-top: 8px; }
+  .stato button { border: 1px solid var(--vino); color: var(--vino); background: #fff; border-radius: 10px; padding: 7px 12px; font-size: 14px; font-weight: 600; }
+  .badge { background: var(--avviso); color: #fff; border-radius: 20px; padding: 2px 9px; font-size: 13px; font-weight: 700; }
+  .badge.zero { background: var(--ok); }
+  .ultimi { margin-top: 16px; }
+  .ultimi .voce { background: var(--carta); border: 1px solid var(--bordo); border-radius: 12px; padding: 9px 12px; margin-bottom: 7px;
+    display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .ultimi .voce .info { flex: 1; min-width: 0; }
+  .ultimi .voce .t1 { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ultimi .voce .t2 { color: var(--grigio); font-size: 13px; }
+  .ultimi .voce .q { font-size: 18px; font-weight: 700; }
+  .ultimi .voce .x { border: 0; background: #fbe9e7; color: var(--errore); border-radius: 10px; width: 36px; height: 36px; font-size: 18px; }
+  .ultimi .voce .spunta { color: var(--ok); font-size: 18px; width: 24px; text-align: center; }
+  .ultimi .voce .orologio { color: var(--avviso); font-size: 16px; width: 24px; text-align: center; }
+  .vuoto { color: var(--grigio); font-size: 14px; text-align: center; padding: 10px; }
+
+  /* schermata PIN e setup */
+  .centro { max-width: 420px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 40px) 24px 30px; text-align: center; }
+  .centro h2 { color: var(--vino); margin: 0 0 6px; }
+  .centro p { color: var(--grigio); margin: 0 0 22px; font-size: 15px; }
+  .punti { display: flex; justify-content: center; gap: 14px; margin: 10px 0 24px; height: 18px; }
+  .punti span { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--vino); }
+  .punti span.pieno { background: var(--vino); }
+  .punti.errore span { border-color: var(--errore); background: var(--errore); }
+  .tastierino { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .tastierino button { height: 64px; border-radius: 16px; border: 1px solid var(--bordo); background: var(--carta); font-size: 26px; font-weight: 500; }
+  .tastierino button.secondario { font-size: 17px; color: var(--vino); font-weight: 600; }
+  .tastierino button:active { background: #eee3df; }
+  .link { background: none; border: 0; color: var(--vino); font-size: 15px; margin-top: 26px; text-decoration: underline; }
+  .campo { text-align: left; margin-bottom: 14px; }
+  .campo label { display: block; font-size: 13px; color: var(--grigio); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+  .campo input { width: 100%; padding: 13px; border: 1px solid var(--bordo); border-radius: 12px; font-size: 16px; background: var(--carta);
+    -webkit-user-select: text; user-select: text; }
+  .primario { width: 100%; padding: 16px; border: 0; border-radius: 14px; background: var(--vino); color: #fff; font-size: 18px; font-weight: 700; margin-top: 8px; }
+  .msg { min-height: 22px; font-size: 14px; margin-top: 12px; color: var(--errore); }
+  .msg.ok { color: var(--ok); }
+
+  /* tastierino a comparsa */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 20; align-items: flex-end; }
+  .overlay.aperto { display: flex; }
+  .foglio { background: var(--sfondo); width: 100%; border-radius: 20px 20px 0 0; padding: 16px 16px calc(env(safe-area-inset-bottom) + 16px); }
+  .foglio .titolo { font-size: 14px; color: var(--grigio); text-transform: uppercase; letter-spacing: .04em; }
+  .foglio .display { background: var(--carta); border: 2px solid var(--vino); border-radius: 14px; font-size: 30px; font-weight: 600; text-align: center;
+    padding: 10px; margin: 8px 0 12px; min-height: 60px; font-family: ui-monospace, Menlo, monospace; word-break: break-all; }
+  .foglio .tastierino button { height: 58px; }
+  .foglio .ok { width: 100%; margin-top: 10px; padding: 15px; border: 0; border-radius: 14px; background: var(--vino); color: #fff; font-size: 18px; font-weight: 700; }
+
+  .codice-nuovo { font-family: ui-monospace, Menlo, monospace; font-size: 20px; margin: 4px 0 10px; word-break: break-all; }
+  .campo-nome { width: 100%; padding: 14px; border: 2px solid var(--vino); border-radius: 14px; font-size: 18px; background: var(--carta);
+    -webkit-user-select: text; user-select: text; margin-bottom: 4px; }
+  .foglio .nota { font-size: 13px; color: var(--grigio); margin: 10px 2px 4px; line-height: 1.35; }
+  .foglio .bottoni { display: flex; gap: 8px; margin-top: 10px; }
+  .foglio .bottoni button { flex: 1; padding: 15px; border-radius: 14px; font-size: 17px; font-weight: 700; border: 0; }
+  .foglio .bottoni .salta { background: #fff; color: var(--vino); border: 1px solid var(--vino); }
+  .foglio .bottoni .conferma { background: var(--vino); color: #fff; }
+  .nome.cliccabile { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+  #toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translateX(-50%) translateY(20px);
+    background: #2b2124; color: #fff; padding: 12px 18px; border-radius: 14px; font-size: 15px; opacity: 0; transition: .25s; z-index: 30;
+    max-width: 90vw; text-align: center; pointer-events: none; }
+  #toast.visibile { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* linguette in basso */
+  .linguette { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; background: var(--carta);
+    border-top: 1px solid var(--bordo); padding-bottom: env(safe-area-inset-bottom); }
+  .linguette button { flex: 1; border: 0; background: none; padding: 10px 0 12px; font-size: 15px; font-weight: 600; color: var(--grigio); }
+  .linguette button .ico { display: block; font-size: 20px; line-height: 1.2; }
+  .linguette button.sel { color: var(--vino); }
+  .linguette .pallino-l { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--giallo-forte); color: #3a2a00;
+    font-size: 11px; font-weight: 700; margin-left: 4px; vertical-align: 2px; }
+  .linguette .pallino-l.rosso { background: var(--errore); color: #fff; }
+  #schermo-app main { padding-bottom: calc(env(safe-area-inset-bottom) + 90px); }
+  .vista { display: none; }
+  .vista.attiva { display: block; }
+
+  /* giacenze */
+  :root { --giallo: #fff4c2; --giallo-forte: #f2c200; --rosso-chiaro: #fde4e1; }
+  .ricerca { position: relative; }
+  .ricerca input { width: 100%; padding: 14px 42px 14px 14px; border: 2px solid var(--vino); border-radius: 14px; font-size: 17px; background: var(--carta);
+    -webkit-user-select: text; user-select: text; -webkit-appearance: none; }
+  .ricerca .pulisci { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: var(--sfondo); color: var(--grigio);
+    border-radius: 50%; width: 30px; height: 30px; font-size: 16px; display: none; }
+  .ricerca .pulisci.visibile { display: block; }
+  .agg-info { font-size: 13px; color: var(--grigio); margin: 8px 2px 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .agg-info.vecchie { color: var(--avviso); }
+  .agg-info button { border: 1px solid var(--vino); color: var(--vino); background: #fff; border-radius: 10px; padding: 6px 10px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .vino { background: var(--carta); border: 1px solid var(--bordo); border-radius: 12px; padding: 10px 12px; margin-bottom: 7px; }
+  .vino.giallo { background: var(--giallo); border-color: var(--giallo-forte); }
+  .vino.rosso { background: var(--rosso-chiaro); border-color: var(--errore); }
+  .vino .n { font-weight: 600; font-size: 15px; line-height: 1.3; }
+  .vino .n .campana { font-size: 13px; margin-left: 4px; }
+  .vino .loc { display: flex; gap: 6px; margin-top: 7px; }
+  .vino .loc div { flex: 1; text-align: center; border-radius: 9px; padding: 4px 2px; background: var(--sfondo); font-size: 12px; color: var(--grigio); }
+  .vino .loc div b { display: block; font-size: 18px; color: var(--testo); }
+  .vino .loc div.giallo { background: var(--giallo-forte); color: #3a2a00; }
+  .vino .loc div.giallo b { color: #3a2a00; }
+  .vino .loc div.rosso { background: var(--errore); color: #fff; }
+  .vino .loc div.rosso b { color: #fff; }
+  .vino .loc div small { display: block; font-size: 11px; }
+  .sezione { display: flex; justify-content: space-between; align-items: center; }
+  .sezione button { border: 0; background: none; color: var(--vino); font-size: 14px; font-weight: 600; padding: 0; }
+  .legenda { font-size: 13px; color: var(--grigio); margin: 4px 2px 10px; line-height: 1.4; }
+  .soglia-riga { display: flex; align-items: center; gap: 8px; background: var(--carta); border: 1px solid var(--bordo); border-radius: 12px; padding: 8px 10px; margin-top: 8px; }
+  .soglia-riga .l { flex: 1; font-size: 15px; }
+  .soglia-riga .l small { display: block; color: var(--grigio); font-size: 12px; }
+  .soglia-riga .pm { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--bordo); background: var(--sfondo); font-size: 24px; color: var(--vino); }
+  .soglia-riga .v { width: 64px; height: 44px; border-radius: 12px; border: 2px solid var(--bordo); background: #fff; font-size: 20px; font-weight: 700;
+    text-align: center; line-height: 40px; }
+  .soglia-riga .v.nessuna { font-size: 12px; font-weight: 500; color: var(--grigio); line-height: 1.15; padding-top: 7px; }
+  .scuoti { animation: scuoti .35s; }
+  @keyframes scuoti { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-8px) } 75% { transform: translateX(8px) } }
+</style>
+</head>
+<body>
+
+<!-- ===================== SETUP (prima apertura) ===================== -->
+<div id="schermo-setup" class="schermo">
+  <div class="centro">
+    <h2>Collega l'app</h2>
+    <p>Serve una volta sola, con la rete. Incolla l'indirizzo dello script Google e scrivi il PIN.</p>
+    <div class="campo"><label>Indirizzo dello script (finisce con /exec)</label>
+      <input id="setup-url" type="url" inputmode="url" autocapitalize="off" autocorrect="off" placeholder="https://script.google.com/macros/s/.../exec"></div>
+    <div class="campo"><label>PIN</label>
+      <input id="setup-pin" type="password" inputmode="numeric" placeholder="lo stesso del Code.gs"></div>
+    <div class="campo"><label>Nome di questo telefono</label>
+      <input id="setup-disp" type="text" placeholder="iPhone Agostino"></div>
+    <button class="primario" id="setup-ok">Collega</button>
+    <div class="msg" id="setup-msg"></div>
+    <button class="link" id="setup-annulla" style="display:none">Annulla</button>
+  </div>
+</div>
+
+<!-- ===================== PIN ===================== -->
+<div id="schermo-pin" class="schermo">
+  <div class="centro">
+    <h2>Magazzino Vini</h2>
+    <p>Inserisci il PIN</p>
+    <div class="punti" id="pin-punti"></div>
+    <div class="tastierino" id="pin-tasti"></div>
+    <button class="link" id="pin-setup">Cambia collegamento</button>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="schermo-app" class="schermo">
+  <header>
+    <h1>Magazzino Vini</h1>
+    <div style="display:flex;align-items:center">
+      <div class="rete"><span class="pallino" id="pallino"></span><span id="rete-testo">in rete</span></div>
+      <button class="ingranaggio" id="apri-setup" aria-label="Impostazioni">&#9881;</button>
+    </div>
+  </header>
+  <main>
+   <div class="vista attiva" id="vista-scansioni">
+    <div class="etichetta" id="etichetta-locale">Locale</div>
+    <div class="segmenti" id="locali"></div>
+
+    <div class="etichetta">Tipo movimento</div>
+    <div class="segmenti quattro" id="tipi"></div>
+
+    <div class="riga-sposta" id="riga-sposta">
+      <div class="etichetta">Spostamento: da quale locale</div>
+      <div class="segmenti" id="locali-da"></div>
+      <div class="freccia" id="freccia"></div>
+    </div>
+
+    <div class="etichetta">Barcode</div>
+    <div class="barcode attesa" id="box-barcode">
+      <div class="codice vuoto" id="codice">In attesa del lettore…</div>
+      <button class="mano" id="barcode-mano" aria-label="Scrivi a mano">&#9000;</button>
+    </div>
+    <div class="nome" id="nome"></div>
+
+    <div class="etichetta">Quantità (confezioni scansionate)</div>
+    <div class="quantita">
+      <button class="pm" id="meno">&minus;</button>
+      <div class="valore" id="qta">1</div>
+      <button class="pm" id="piu">+</button>
+    </div>
+    <div class="rapidi" id="rapidi"></div>
+    <div class="bottiglie" id="bottiglie"></div>
+
+    <button class="salva" id="salva">SALVA</button>
+
+    <div class="stato">
+      <div class="r"><span>Da inviare al foglio Google</span><span style="display:flex;gap:10px;align-items:center"><span class="badge zero" id="n-coda">0</span><button id="invia-ora">Invia ora</button></span></div>
+      <div class="r"><span id="elenco-info">Elenco vini: non ancora scaricato</span><button id="aggiorna-elenco">&#8635; Aggiorna</button></div>
+    </div>
+
+    <div class="etichetta">Ultime scansioni</div>
+    <div class="ultimi" id="ultimi"></div>
+   </div>
+
+   <!-- ===================== GIACENZE ===================== -->
+   <div class="vista" id="vista-giacenze">
+    <div class="ricerca">
+      <input id="cerca" type="text" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+             placeholder="Cerca un vino o spara il barcode">
+      <button class="pulisci" id="cerca-pulisci" type="button" aria-label="Cancella">✕</button>
+    </div>
+    <div class="agg-info" id="giac-info"><span id="giac-info-testo">Giacenze non ancora scaricate</span><button id="giac-aggiorna" type="button">&#8635; Aggiorna</button></div>
+    <div id="giac-lista"></div>
+   </div>
+  </main>
+  <nav class="linguette">
+    <button type="button" id="tab-scansioni" class="sel"><span class="ico">&#9638;</span>Scansioni</button>
+    <button type="button" id="tab-giacenze"><span class="ico">&#127863;</span>Giacenze<span id="tab-avvisi"></span></button>
+  </nav>
+</div>
+
+<!-- ===================== AVVISO SOTTO SOGLIA ===================== -->
+<div class="overlay" id="ov-soglia">
+  <div class="foglio">
+    <div class="titolo">Avvisami quando restano…</div>
+    <div class="n" id="soglia-nome" style="font-weight:600;font-size:17px;margin:6px 0 2px"></div>
+    <div id="soglia-righe"></div>
+    <div class="nota">Il vino diventa <b>giallo</b> quando in quel locale restano quelle bottiglie o meno, <b>rosso</b> quando è finito. 0 = nessun avviso.</div>
+    <div class="bottoni">
+      <button class="salta" id="soglia-annulla" type="button">Annulla</button>
+      <button class="conferma" id="soglia-ok" type="button">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== TASTIERINO A COMPARSA ===================== -->
+<div class="overlay" id="overlay">
+  <div class="foglio">
+    <div class="titolo" id="ov-titolo">Quantità</div>
+    <div class="display" id="ov-display">1</div>
+    <div class="tastierino" id="ov-tasti"></div>
+    <button class="ok" id="ov-ok">OK</button>
+  </div>
+</div>
+
+<!-- ===================== CODICE NUOVO: CHE VINO È? ===================== -->
+<div class="overlay" id="ov-nome">
+  <div class="foglio">
+    <div class="titolo">Codice nuovo · che vino è?</div>
+    <div class="codice-nuovo" id="nome-codice"></div>
+    <input id="nome-input" class="campo-nome" type="text" list="nomi-noti" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="es. Ferrari Brut 0,75">
+    <datalist id="nomi-noti"></datalist>
+    <div class="titolo" style="margin-top:10px">Questo codice è</div>
+    <div class="segmenti quattro" id="nome-pezzi" style="margin-top:6px"></div>
+    <div class="nota">Se la tastiera non compare (succede con il lettore collegato): tocca il campo e poi l'icona della tastiera in basso, oppure premi Salta e scrivi il nome dopo, toccando il testo arancione sotto il barcode.</div>
+    <div class="bottoni">
+      <button class="salta" id="nome-salta" type="button">Salta</button>
+      <button class="conferma" id="nome-ok" type="button">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<!-- campo invisibile: tiene il "cursore" pronto per il lettore Bluetooth (inputmode=none: niente tastiera a schermo) -->
+<input id="catcher" type="text" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true" tabindex="-1"
+       style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0;pointer-events:none">
+
+<script>
+(function () {
+  "use strict";
+
+  // ------------------------------------------------------------------
+  // Dati fissi
+  // ------------------------------------------------------------------
+  var LOCALI = ["Gente di Mare", "Il Falco", "A Pesci in Faccia"];
+  var CORTI  = { "Gente di Mare": "GdM", "Il Falco": "Falco", "A Pesci in Faccia": "APiF" };
+  var TIPI   = [["inventario", "Inventario"], ["spostamento", "Spostamento"], ["rottura", "Rottura"], ["carico", "Carico"]];
+  var RAPIDI = [1, 6, 12, 24];
+  var MAX_ULTIMI = 20;
+
+  // ------------------------------------------------------------------
+  // Memoria sul telefono (localStorage)
+  // ------------------------------------------------------------------
+  function leggi(chiave, def) {
+    try { var v = localStorage.getItem("mv_" + chiave); return v ? JSON.parse(v) : def; } catch (e) { return def; }
+  }
+  function scrivi(chiave, val) {
+    try { localStorage.setItem("mv_" + chiave, JSON.stringify(val)); } catch (e) { toast("Memoria del telefono piena o bloccata"); }
+  }
+
+  var cfg    = leggi("cfg", null);                         // {url, pin, dispositivo}
+  var sel    = leggi("sel", { locale: LOCALI[0], tipo: "inventario", locale_da: LOCALI[0] });
+  var elenco = leggi("elenco", { aggiornato: "", mappa: {} }); // mappa: codice -> [nome, pezzi]
+  var righe  = leggi("righe", []);                         // scansioni salvate sul telefono
+  var nomiLocali = leggi("nomi", {});                      // codice -> {nome, pezzi} scritti a mano, finché il PC non li collega
+  var corrente = { barcode: "", quantita: 1 };
+  var inviando = false, sbloccata = false;
+  // giacenze: arrivano dal PC tramite il foglio Google. vini: [id, nome, [GdM, Falco, APiF], "barcode barcode"]
+  // (null = quel vino in quel locale non c'è mai stato)
+  var giac   = leggi("giac", { aggiornato: "", scaricato: "", vini: [] });
+  var soglie = leggi("soglie", {});        // "id|locale" -> bottiglie (locale 1 GdM, 2 Falco, 3 APiF)
+  var sogliePend = leggi("soglie_coda", {}); // soglie cambiate sul telefono, non ancora arrivate al foglio
+  var vista = "scansioni", mostraFiniti = false;
+
+  // ------------------------------------------------------------------
+  // Utilità
+  // ------------------------------------------------------------------
+  var $ = function (id) { return document.getElementById(id); };
+  function p2(n) { return (n < 10 ? "0" : "") + n; }
+  function adessoLocale() {   // 2026-11-15T18:05:12+01:00 (ora del telefono, con fuso)
+    var d = new Date(), off = -d.getTimezoneOffset(), s = off >= 0 ? "+" : "-"; off = Math.abs(off);
+    return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()) + "T" + p2(d.getHours()) + ":" + p2(d.getMinutes()) + ":" + p2(d.getSeconds()) + s + p2(Math.floor(off / 60)) + ":" + p2(off % 60);
+  }
+  function nuovoId() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  }
+  var toastTimer;
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.classList.add("visibile");
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove("visibile"); }, 2200);
+  }
+  function mostra(id) {
+    ["schermo-setup", "schermo-pin", "schermo-app"].forEach(function (s) { $(s).classList.toggle("attivo", s === id); });
+    window.scrollTo(0, 0);
+  }
+  function pulisciUrl(u) {
+    u = (u || "").trim();
+    var m = u.match(/^https:\/\/script\.google\.com\/macros\/s\/[^\/]+\/exec/);
+    return m ? m[0] : u;
+  }
+
+  // ------------------------------------------------------------------
+  // Chiamate allo script Google
+  // ------------------------------------------------------------------
+  function chiama(metodo, dati, c) {
+    c = c || cfg;
+    var ctrl = new AbortController(), timer = setTimeout(function () { ctrl.abort(); }, 25000);
+    var prom;
+    if (metodo === "GET") {
+      var q = new URLSearchParams(Object.assign({ pin: c.pin }, dati));
+      prom = fetch(c.url + "?" + q.toString(), { signal: ctrl.signal, cache: "no-store" });
+    } else {
+      // corpo testo semplice: niente controlli CORS aggiuntivi, Apps Script lo legge in e.postData.contents
+      prom = fetch(c.url, { method: "POST", body: JSON.stringify(Object.assign({ pin: c.pin }, dati)), signal: ctrl.signal });
+    }
+    return prom.then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.ok) throw new Error((j && j.errore) || "risposta non valida dello script");
+      return j;
+    }).finally(function () { clearTimeout(timer); });
+  }
+
+  // ------------------------------------------------------------------
+  // Rete / invio
+  // ------------------------------------------------------------------
+  function setRete(stato) {
+    var pal = $("pallino"), txt = $("rete-testo");
+    pal.className = "pallino" + (stato === "off" ? " off" : stato === "invio" ? " invio" : "");
+    txt.textContent = stato === "off" ? "senza rete" : stato === "invio" ? "invio…" : "in rete";
+  }
+  function aggiornaRete() { setRete(navigator.onLine ? "on" : "off"); }
+
+  function coda() { return righe.filter(function (r) { return !r.inviata; }); }
+
+  function invia(manuale) {
+    var daInviare = coda();
+    renderStato();
+    if (!daInviare.length) { if (manuale) toast("Niente da inviare"); return Promise.resolve(); }
+    if (inviando || !cfg) return Promise.resolve();
+    if (!navigator.onLine) { if (manuale) toast("Senza rete: le scansioni restano salvate sul telefono"); return Promise.resolve(); }
+    inviando = true; setRete("invio");
+    var pacchetto = daInviare.slice(0, 100).map(function (r) {
+      return { id: r.id, data_ora: r.data_ora, locale: r.locale, tipo: r.tipo, barcode: r.barcode,
+               quantita: r.quantita, locale_da: r.locale_da || "", dispositivo: cfg.dispositivo || "",
+               nome_inserito: r.nome_inserito || "", pezzi_inseriti: r.pezzi_inseriti || "" };
+    });
+    var ids = pacchetto.map(function (r) { return r.id; });
+    return chiama("POST", { action: "salva", righe: pacchetto }).catch(function (errPost) {
+      // Risposta non leggibile (rete caduta a metà, o il browser non lascia leggere la risposta):
+      // prima di riprovare chiedo al foglio quali scansioni sono arrivate davvero, così non si duplicano.
+      return verificaArrivate(ids).then(function (presenti) {
+        if (!presenti.length) throw errPost;
+        return { salvate: presenti, gia_presenti: [] };
+      });
+    }).then(function (res) {
+      var ok = {};
+      (res.salvate || []).concat(res.gia_presenti || []).forEach(function (id) { ok[id] = true; });
+      var n = 0;
+      righe.forEach(function (r) { if (!r.inviata && ok[r.id]) { r.inviata = true; n++; } });
+      pota(); scrivi("righe", righe);
+      inviando = false; aggiornaRete(); renderStato(); renderUltimi();
+      if (coda().length) return invia(false);
+      if (n) toast("Inviate " + n + " scansioni al foglio Google");
+    }).catch(function (e) {
+      inviando = false; aggiornaRete(); renderStato();
+      if (manuale) toast("Invio non riuscito: " + e.message);
+    });
+  }
+
+  function verificaArrivate(ids) {
+    var gruppi = [];
+    for (var i = 0; i < ids.length; i += 40) gruppi.push(ids.slice(i, i + 40));
+    return gruppi.reduce(function (catena, gruppo) {
+      return catena.then(function (acc) {
+        return chiama("GET", { action: "verifica", ids: gruppo.join(",") }).then(function (res) { return acc.concat(res.presenti || []); });
+      });
+    }, Promise.resolve([]));
+  }
+
+  // tiene nel telefono solo le ultime MAX_ULTIMI già inviate (quelle da inviare restano sempre)
+  function pota() {
+    var inviate = righe.filter(function (r) { return r.inviata; });
+    if (inviate.length > MAX_ULTIMI) {
+      var daTogliere = {};
+      inviate.slice(0, inviate.length - MAX_ULTIMI).forEach(function (r) { daTogliere[r.id] = true; });
+      righe = righe.filter(function (r) { return !daTogliere[r.id]; });
+    }
+  }
+
+  function aggiornaElenco(manuale) {
+    if (!cfg || !navigator.onLine) { if (manuale) toast("Senza rete: uso l'elenco già sul telefono"); return Promise.resolve(); }
+    return chiama("GET", { action: "lista" }).then(function (res) {
+      var mappa = {};
+      (res.lista || []).forEach(function (r) { mappa[String(r[0])] = [String(r[1] || ""), Number(r[2]) || 1]; });
+      elenco = { aggiornato: res.aggiornato || "", scaricato: adessoLocale(), mappa: mappa };
+      scrivi("elenco", elenco);
+      // i codici ormai collegati sul PC non servono più come nomi scritti a mano
+      Object.keys(nomiLocali).forEach(function (k) { if (mappa[k]) delete nomiLocali[k]; });
+      scrivi("nomi", nomiLocali);
+      renderStato(); renderBarcode();
+      if (manuale) toast("Elenco aggiornato: " + Object.keys(mappa).length + " codici");
+    }).catch(function (e) { if (manuale) toast("Elenco non aggiornato: " + e.message); });
+  }
+
+  // ------------------------------------------------------------------
+  // Lettore barcode (tastiera Bluetooth): ascolta i tasti ovunque sia il cursore
+  // ------------------------------------------------------------------
+  var buf = "", bufTimer = null;
+  function overlayAperto() { return !!document.querySelector(".overlay.aperto"); }
+  window.addEventListener("keydown", function (e) {
+    if (!sbloccata || !$("schermo-app").classList.contains("attivo")) return;
+    if (overlayAperto()) return;
+    var a = document.activeElement;
+    if (a && a.tagName === "INPUT" && a.id !== "catcher") return;   // si sta scrivendo nella ricerca: lascia scrivere
+    if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); if (buf) chiudiLettura(); return; }
+    if (e.key && e.key.length === 1 && /[0-9A-Za-z\-]/.test(e.key)) {
+      e.preventDefault();
+      buf += e.key;
+      mostraParziale();
+      clearTimeout(bufTimer);
+      bufTimer = setTimeout(function () { if (buf.length >= 6) chiudiLettura(); }, 300);
+    }
+  });
+  function mostraParziale() {
+    if (vista === "giacenze") return;
+    var c = $("codice"); c.textContent = buf; c.className = "codice";
+  }
+  // riporta il cursore sul campo invisibile, così il lettore scrive sempre lì
+  function rifocalizza() {
+    if (!sbloccata || overlayAperto()) return;
+    var a = document.activeElement;
+    if (a && a.tagName === "INPUT" && a.id !== "catcher") return;   // non rubare il cursore alla ricerca
+    var c = $("catcher");
+    if (document.activeElement !== c) { try { c.focus({ preventScroll: true }); } catch (e) { c.focus(); } }
+  }
+  $("catcher").addEventListener("input", function () { this.value = ""; });
+  document.addEventListener("click", function () { setTimeout(rifocalizza, 50); });
+  function chiudiLettura() {
+    clearTimeout(bufTimer);
+    var codice = buf; buf = "";
+    if (vista === "giacenze") { $("cerca").value = codice; renderGiacenze(); if (navigator.vibrate) navigator.vibrate(30); return; }
+    impostaBarcode(codice);
+  }
+  function impostaBarcode(codice) {
+    corrente.barcode = String(codice || "").trim();
+    renderBarcode();
+    if (corrente.barcode && navigator.vibrate) navigator.vibrate(30);
+    if (corrente.barcode && !prodottoDi(corrente.barcode)) apriNome(corrente.barcode);
+  }
+  // ufficiale = collegato sul PC; altrimenti è il nome scritto a mano su questo telefono
+  function prodottoDi(codice) {
+    var v = elenco.mappa[codice];
+    if (v) return { nome: v[0], pezzi: v[1], ufficiale: true };
+    var l = nomiLocali[codice];
+    if (l) return { nome: l.nome, pezzi: l.pezzi || 1, ufficiale: false };
+    return null;
+  }
+
+  // ------------------------------------------------------------------
+  // Riquadro "Codice nuovo: che vino è?"
+  // ------------------------------------------------------------------
+  var PEZZI = [[1, "Bottiglia"], [3, "Cartone 3"], [6, "Cartone 6"], [12, "Cartone 12"]];
+  var nomeStato = { codice: "", pezzi: 1 };
+  function renderPezzi() {
+    segmenti("nome-pezzi", PEZZI, nomeStato.pezzi, function (v) { nomeStato.pezzi = v; renderPezzi(); });
+  }
+  function apriNome(codice) {
+    var l = nomiLocali[codice];
+    nomeStato = { codice: codice, pezzi: l ? l.pezzi : (codice.length === 14 ? 6 : 1) };   // 14 cifre = di solito cartone
+    $("nome-codice").textContent = codice;
+    $("nome-input").value = l ? l.nome : "";
+    // suggerimenti mentre scrivi: i vini già noti e i nomi già scritti
+    var dl = $("nomi-noti"), visti = {};
+    dl.innerHTML = "";
+    Object.keys(elenco.mappa).map(function (k) { return elenco.mappa[k][0]; })
+      .concat(Object.keys(nomiLocali).map(function (k) { return nomiLocali[k].nome; }))
+      .forEach(function (n) {
+        if (!n || visti[n]) return; visti[n] = true;
+        var o = document.createElement("option"); o.value = n; dl.appendChild(o);
+      });
+    renderPezzi();
+    $("ov-nome").classList.add("aperto");
+    setTimeout(function () { $("nome-input").focus(); }, 50);
+  }
+  function chiudiNome() { $("ov-nome").classList.remove("aperto"); $("nome-input").blur(); setTimeout(rifocalizza, 50); }
+  function confermaNome() {
+    var nome = $("nome-input").value.replace(/\s+/g, " ").trim();
+    if (!nome) { toast("Scrivi il nome del vino, oppure premi Salta"); return; }
+    nomiLocali[nomeStato.codice] = { nome: nome, pezzi: nomeStato.pezzi };
+    scrivi("nomi", nomiLocali);
+    chiudiNome();
+    if (nomeStato.codice === corrente.barcode) renderBarcode();
+    toast("Nome salvato per questo codice");
+  }
+  $("nome-ok").addEventListener("click", confermaNome);
+  $("nome-salta").addEventListener("click", chiudiNome);
+  $("nome-input").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); confermaNome(); } });
+  $("nome").addEventListener("click", function () {
+    var pr = corrente.barcode ? prodottoDi(corrente.barcode) : null;
+    if (corrente.barcode && (!pr || !pr.ufficiale)) apriNome(corrente.barcode);
+  });
+
+  // ------------------------------------------------------------------
+  // Salvataggio di una scansione
+  // ------------------------------------------------------------------
+  function salvaScansione() {
+    if (!corrente.barcode) { toast("Scansiona prima un barcode"); scuoti($("box-barcode")); return; }
+    if (!(corrente.quantita > 0)) { toast("La quantità deve essere almeno 1"); return; }
+    if (sel.tipo === "spostamento" && sel.locale_da === sel.locale) { toast("Spostamento: scegli due locali diversi"); return; }
+    var pr = prodottoDi(corrente.barcode);
+    var r = {
+      id: nuovoId(), data_ora: adessoLocale(), locale: sel.locale, tipo: sel.tipo,
+      barcode: corrente.barcode, quantita: corrente.quantita,
+      locale_da: sel.tipo === "spostamento" ? sel.locale_da : "",
+      nome: pr ? pr.nome : "", pezzi: pr ? pr.pezzi : 1, inviata: false,
+      nome_inserito: (pr && !pr.ufficiale) ? pr.nome : "",
+      pezzi_inseriti: (pr && !pr.ufficiale) ? pr.pezzi : ""
+    };
+    righe.push(r); scrivi("righe", righe);
+    corrente = { barcode: "", quantita: 1 };
+    renderBarcode(); renderQuantita(); renderStato(); renderUltimi();
+    toast("Salvato sul telefono" + (navigator.onLine ? "" : " (invio appena c'è rete)"));
+    invia(false);
+  }
+  function eliminaScansione(id) {
+    var r = righe.filter(function (x) { return x.id === id; })[0];
+    if (!r || r.inviata) return;
+    righe = righe.filter(function (x) { return x.id !== id; });
+    scrivi("righe", righe); renderStato(); renderUltimi();
+    toast("Scansione eliminata");
+  }
+  function scuoti(el) { el.classList.remove("scuoti"); void el.offsetWidth; el.classList.add("scuoti"); }
+
+  // ------------------------------------------------------------------
+  // Disegno dell'interfaccia
+  // ------------------------------------------------------------------
+  function segmenti(contenitore, voci, valore, onSel) {
+    var box = $(contenitore); box.innerHTML = "";
+    voci.forEach(function (v) {
+      var val = Array.isArray(v) ? v[0] : v, lab = Array.isArray(v) ? v[1] : v;
+      var b = document.createElement("button");
+      b.type = "button"; b.textContent = lab; b.className = val === valore ? "sel" : "";
+      b.addEventListener("click", function () { onSel(val); });
+      box.appendChild(b);
+    });
+  }
+  function renderSelettori() {
+    segmenti("locali", LOCALI, sel.locale, function (v) { sel.locale = v; scrivi("sel", sel); renderSelettori(); });
+    segmenti("tipi", TIPI, sel.tipo, function (v) { sel.tipo = v; scrivi("sel", sel); renderSelettori(); });
+    segmenti("locali-da", LOCALI, sel.locale_da, function (v) { sel.locale_da = v; scrivi("sel", sel); renderSelettori(); });
+    var sposta = sel.tipo === "spostamento";
+    $("riga-sposta").classList.toggle("visibile", sposta);
+    $("etichetta-locale").textContent = sposta ? "Locale di arrivo" : "Locale";
+    $("freccia").textContent = sposta ? (sel.locale_da + "  →  " + sel.locale) : "";
+  }
+  function renderBarcode() {
+    var c = $("codice"), n = $("nome"), box = $("box-barcode");
+    if (!corrente.barcode) {
+      c.textContent = "In attesa del lettore…"; c.className = "codice vuoto"; n.textContent = ""; n.className = "nome";
+      box.classList.add("attesa");
+    } else {
+      c.textContent = corrente.barcode; c.className = "codice"; box.classList.remove("attesa");
+      var pr = prodottoDi(corrente.barcode);
+      if (pr && pr.ufficiale) {
+        n.textContent = pr.nome + (pr.pezzi > 1 ? "  ·  confezione da " + pr.pezzi : "");
+        n.className = "nome ok";
+      } else if (pr) {
+        n.textContent = "✎ " + pr.nome + (pr.pezzi > 1 ? " · confezione da " + pr.pezzi : "") + " — scritto da te, da confermare sul PC";
+        n.className = "nome avviso cliccabile";
+      } else {
+        n.textContent = "Codice nuovo senza nome: tocca qui per scriverlo (si salva lo stesso).";
+        n.className = "nome avviso cliccabile";
+      }
+    }
+    renderQuantita();
+  }
+  function renderQuantita() {
+    $("qta").textContent = corrente.quantita;
+    var pr = corrente.barcode ? prodottoDi(corrente.barcode) : null;
+    var pezzi = pr ? pr.pezzi : 1;
+    $("bottiglie").textContent = pezzi > 1 ? ("= " + (corrente.quantita * pezzi) + " bottiglie") : "";
+  }
+  function renderStato() {
+    var n = coda().length;
+    var b = $("n-coda"); b.textContent = n; b.className = "badge" + (n ? "" : " zero");
+    var k = Object.keys(elenco.mappa).length;
+    var info = $("elenco-info");
+    if (!k) info.textContent = "Elenco vini: non ancora scaricato";
+    else info.textContent = "Elenco vini: " + k + " codici" + (elenco.scaricato ? " (del " + elenco.scaricato.slice(8, 10) + "/" + elenco.scaricato.slice(5, 7) + " " + elenco.scaricato.slice(11, 16) + ")" : "");
+  }
+  function renderUltimi() {
+    var box = $("ultimi"); box.innerHTML = "";
+    var ultime = righe.slice(-MAX_ULTIMI).reverse();
+    if (!ultime.length) { box.innerHTML = '<div class="vuoto">Nessuna scansione ancora.</div>'; return; }
+    ultime.forEach(function (r) {
+      var v = document.createElement("div"); v.className = "voce";
+      var tipo = r.tipo === "spostamento" ? "spostamento " + CORTI[r.locale_da] + " → " + CORTI[r.locale] : r.tipo + " · " + CORTI[r.locale];
+      var pezzi = r.pezzi > 1 ? " (" + (r.quantita * r.pezzi) + " bott.)" : "";
+      v.innerHTML =
+        '<div class="' + (r.inviata ? "spunta" : "orologio") + '">' + (r.inviata ? "✓" : "⏳") + "</div>" +
+        '<div class="info"><div class="t1"></div><div class="t2"></div></div>' +
+        '<div class="q"></div>';
+      v.querySelector(".t1").textContent = r.nome || r.barcode;
+      v.querySelector(".t2").textContent = r.data_ora.slice(11, 16) + " · " + tipo + (r.nome ? " · " + r.barcode : "");
+      v.querySelector(".q").textContent = r.quantita + pezzi;
+      if (!r.inviata) {
+        var x = document.createElement("button"); x.className = "x"; x.textContent = "✕"; x.setAttribute("aria-label", "Elimina");
+        x.addEventListener("click", function () { eliminaScansione(r.id); });
+        v.appendChild(x);
+      }
+      box.appendChild(v);
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Tastierino a comparsa (quantità o barcode a mano)
+  // ------------------------------------------------------------------
+  var ov = { valore: "", onOk: null, max: 4 };
+  function apriTastierino(titolo, valore, max, onOk) {
+    ov = { valore: String(valore || ""), onOk: onOk, max: max };
+    $("ov-titolo").textContent = titolo; $("ov-display").textContent = ov.valore || " ";
+    $("overlay").classList.add("aperto");
+  }
+  function chiudiTastierino() { $("overlay").classList.remove("aperto"); }
+  function tastierino(contenitore, onTasto, labelSx, labelDx) {
+    var box = $(contenitore); box.innerHTML = "";
+    ["1", "2", "3", "4", "5", "6", "7", "8", "9", labelSx, "0", labelDx].forEach(function (t) {
+      var b = document.createElement("button"); b.type = "button"; b.textContent = t;
+      if (t === labelSx || t === labelDx) b.className = "secondario";
+      b.addEventListener("click", function () { onTasto(t); });
+      box.appendChild(b);
+    });
+  }
+  tastierino("ov-tasti", function (t) {
+    if (t === "C") ov.valore = "";
+    else if (t === "⌫") ov.valore = ov.valore.slice(0, -1);
+    else if (ov.valore.length < ov.max) ov.valore += t;
+    $("ov-display").textContent = ov.valore || " ";
+  }, "C", "⌫");
+  $("ov-ok").addEventListener("click", function () { chiudiTastierino(); if (ov.onOk) ov.onOk(ov.valore); });
+  $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) chiudiTastierino(); });
+
+  // ------------------------------------------------------------------
+  // Linguette Scansioni / Giacenze
+  // ------------------------------------------------------------------
+  function vai(v) {
+    vista = v;
+    $("vista-scansioni").classList.toggle("attiva", v === "scansioni");
+    $("vista-giacenze").classList.toggle("attiva", v === "giacenze");
+    $("tab-scansioni").classList.toggle("sel", v === "scansioni");
+    $("tab-giacenze").classList.toggle("sel", v === "giacenze");
+    window.scrollTo(0, 0);
+    if (v === "giacenze") { renderGiacenze(); aggiornaGiacenze(false); }
+    else { $("cerca").blur(); setTimeout(rifocalizza, 50); }
+  }
+  $("tab-scansioni").addEventListener("click", function () { vai("scansioni"); });
+  $("tab-giacenze").addEventListener("click", function () { vai("giacenze"); });
+
+  // ------------------------------------------------------------------
+  // Giacenze: scarico dal foglio, ricerca, colori
+  // ------------------------------------------------------------------
+  function norm(s) {   // minuscolo, senza accenti né punteggiatura: "Müller-Thurgau" -> "muller thurgau"
+    return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, " ").trim();
+  }
+  function quante(g) { return g === null || g === undefined || g === "" ? null : Math.round(Number(g) * 100) / 100; }
+  function sogliaDi(id, loc) { var k = id + "|" + loc; return k in sogliePend ? sogliePend[k] : (soglie[k] || 0); }
+  // colore di un vino in un locale: "rosso" finito, "giallo" sotto soglia, "" normale, null = mai stato lì e nessun avviso
+  function coloreLocale(v, loc) {
+    var g = quante(v[2][loc - 1]), s = sogliaDi(v[0], loc);
+    if (s > 0) { var n = g === null ? 0 : g; return n <= 0 ? "rosso" : n <= s ? "giallo" : ""; }
+    if (g === null) return null;
+    return g <= 0 ? "rosso" : "";
+  }
+  function coloreVino(v) {
+    var c = [1, 2, 3].map(function (l) { return coloreLocale(v, l); });
+    return c.indexOf("rosso") >= 0 ? "rosso" : c.indexOf("giallo") >= 0 ? "giallo" : "";
+  }
+  function haSoglia(v) { return [1, 2, 3].some(function (l) { return sogliaDi(v[0], l) > 0; }); }
+
+  function aggiornaGiacenze(manuale) {
+    if (!cfg || !navigator.onLine) { if (manuale) toast("Senza rete: uso le giacenze già sul telefono"); return Promise.resolve(); }
+    return inviaSoglie().then(function () {
+      return chiama("GET", { action: "giacenze" });
+    }).then(function (res) {
+      giac = { aggiornato: res.aggiornato || "", scaricato: adessoLocale(), vini: res.vini || [] };
+      scrivi("giac", giac);
+      var nuove = {};
+      (res.soglie || []).forEach(function (r) { if (Number(r[2]) > 0) nuove[r[0] + "|" + r[1]] = Number(r[2]); });
+      soglie = nuove; scrivi("soglie", soglie);
+      renderGiacenze(); renderAvvisi();
+      if (manuale) toast("Giacenze aggiornate: " + giac.vini.length + " vini");
+    }).catch(function (e) { if (manuale) toast("Giacenze non aggiornate: " + e.message); });
+  }
+  function inviaSoglie() {
+    var chiavi = Object.keys(sogliePend);
+    if (!chiavi.length || !cfg || !navigator.onLine) return Promise.resolve();
+    var righeS = chiavi.map(function (k) { var p = k.split("|"); return [Number(p[0]), Number(p[1]), sogliePend[k]]; });
+    return chiama("POST", { action: "soglie", righe: righeS, dispositivo: cfg.dispositivo || "" }).then(function () {
+      chiavi.forEach(function (k) {
+        if (sogliePend[k] > 0) soglie[k] = sogliePend[k]; else delete soglie[k];
+        delete sogliePend[k];
+      });
+      scrivi("soglie", soglie); scrivi("soglie_coda", sogliePend);
+    }).catch(function () { /* riprova al prossimo giro: restano in sogliePend */ });
+  }
+
+  function dataBreve(iso) { return iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + " alle " + iso.slice(11, 16) : ""; }
+  function renderInfo() {
+    var box = $("giac-info"), t = $("giac-info-testo");
+    if (!giac.aggiornato) { t.textContent = "Giacenze non ancora scaricate"; box.className = "agg-info"; return; }
+    var ore = (Date.now() - new Date(giac.aggiornato).getTime()) / 3600000;
+    t.textContent = "Situazione del " + dataBreve(giac.aggiornato) + (ore > 36 ? " — non aggiornate da più di un giorno" : "");
+    box.className = "agg-info" + (ore > 36 ? " vecchie" : "");
+  }
+  function schedaVino(v) {
+    var d = document.createElement("div"), col = coloreVino(v);
+    d.className = "vino" + (col ? " " + col : "");
+    var n = document.createElement("div"); n.className = "n"; n.textContent = v[1];
+    if (haSoglia(v)) { var c = document.createElement("span"); c.className = "campana"; c.textContent = "🔔"; n.appendChild(c); }
+    d.appendChild(n);
+    var loc = document.createElement("div"); loc.className = "loc";
+    [1, 2, 3].forEach(function (l) {
+      var g = quante(v[2][l - 1]), s = sogliaDi(v[0], l), cl = coloreLocale(v, l);
+      var c = document.createElement("div"); if (cl) c.className = cl;
+      c.appendChild(document.createTextNode(CORTI[LOCALI[l - 1]]));
+      var b = document.createElement("b"); b.textContent = g === null ? "–" : g; c.appendChild(b);
+      if (s > 0) { var sm = document.createElement("small"); sm.textContent = "avviso ≤ " + s; c.appendChild(sm); }
+      loc.appendChild(c);
+    });
+    d.appendChild(loc);
+    d.addEventListener("click", function () { apriSoglia(v); });
+    return d;
+  }
+  function titoloSezione(testo, bottone, onClick) {
+    var d = document.createElement("div"); d.className = "etichetta sezione";
+    var s = document.createElement("span"); s.textContent = testo; d.appendChild(s);
+    if (bottone) { var b = document.createElement("button"); b.type = "button"; b.textContent = bottone; b.addEventListener("click", onClick); d.appendChild(b); }
+    return d;
+  }
+  function vuoto(testo) { var d = document.createElement("div"); d.className = "vuoto"; d.textContent = testo; return d; }
+
+  function renderGiacenze() {
+    renderInfo();
+    var q = $("cerca").value, box = $("giac-lista");
+    $("cerca-pulisci").classList.toggle("visibile", !!q);
+    box.innerHTML = "";
+    if (!giac.vini.length) { box.appendChild(vuoto("Nessuna giacenza sul telefono: premi Aggiorna con la rete.")); return; }
+    var parole = norm(q).split(" ").filter(Boolean);
+    if (parole.length) {
+      var codice = q.trim();
+      var trovati = giac.vini.filter(function (v) {
+        if (/^[0-9]{6,}$/.test(codice) && (" " + (v[3] || "") + " ").indexOf(" " + codice + " ") >= 0) return true;
+        if (!v._n) v._n = norm(v[1]);
+        return parole.every(function (p) { return v._n.indexOf(p) >= 0; });
+      });
+      box.appendChild(titoloSezione(trovati.length === 1 ? "1 vino trovato" : trovati.length + " vini trovati"));
+      if (!trovati.length) box.appendChild(vuoto(/^[0-9]{6,}$/.test(codice) ? "Barcode non collegato a nessun vino." : "Nessun vino con queste parole."));
+      trovati.slice(0, 60).forEach(function (v) { box.appendChild(schedaVino(v)); });
+      if (trovati.length > 60) box.appendChild(vuoto("…e altri " + (trovati.length - 60) + ": aggiungi una parola per restringere."));
+      return;
+    }
+    // senza ricerca: prima i vini con l'avviso che sono gialli o rossi, poi i finiti senza avviso
+    var soglia = giac.vini.filter(function (v) { return haSoglia(v) && coloreVino(v); });
+    soglia.sort(function (a, b) { return (coloreVino(a) === "rosso" ? 0 : 1) - (coloreVino(b) === "rosso" ? 0 : 1) || a[1].localeCompare(b[1]); });
+    box.appendChild(titoloSezione("Da riordinare (" + soglia.length + ")"));
+    var leg = document.createElement("div"); leg.className = "legenda";
+    leg.textContent = "Tocca un vino per impostare l'avviso. Giallo = restano poche bottiglie, rosso = finito.";
+    box.appendChild(leg);
+    if (!soglia.length) box.appendChild(vuoto("Nessun vino con avviso sotto soglia."));
+    soglia.forEach(function (v) { box.appendChild(schedaVino(v)); });
+    var finiti = giac.vini.filter(function (v) { return !haSoglia(v) && coloreVino(v) === "rosso"; });
+    box.appendChild(titoloSezione("Finiti in qualche locale (" + finiti.length + ")", finiti.length ? (mostraFiniti ? "Nascondi" : "Mostra") : "",
+      function () { mostraFiniti = !mostraFiniti; renderGiacenze(); }));
+    if (mostraFiniti) finiti.forEach(function (v) { box.appendChild(schedaVino(v)); });
+  }
+  function renderAvvisi() {
+    var r = 0, g = 0;
+    giac.vini.forEach(function (v) { if (!haSoglia(v)) return; var c = coloreVino(v); if (c === "rosso") r++; else if (c === "giallo") g++; });
+    var el = $("tab-avvisi");
+    el.textContent = r + g ? String(r + g) : "";
+    el.className = r + g ? "pallino-l" + (r ? " rosso" : "") : "";
+  }
+  var timerCerca;
+  $("cerca").addEventListener("input", function () { clearTimeout(timerCerca); timerCerca = setTimeout(renderGiacenze, 120); });
+  $("cerca").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); renderGiacenze(); this.blur(); } });
+  $("cerca-pulisci").addEventListener("click", function () { $("cerca").value = ""; renderGiacenze(); });
+  $("giac-aggiorna").addEventListener("click", function () { aggiornaGiacenze(true); });
+
+  // finestra "Avvisami quando restano…"
+  var sogliaVino = null, sogliaTmp = {};
+  function apriSoglia(v) {
+    sogliaVino = v; sogliaTmp = {};
+    [1, 2, 3].forEach(function (l) { sogliaTmp[l] = sogliaDi(v[0], l); });
+    $("soglia-nome").textContent = v[1];
+    renderSoglia();
+    $("ov-soglia").classList.add("aperto");
+  }
+  function renderSoglia() {
+    var box = $("soglia-righe"); box.innerHTML = "";
+    [1, 2, 3].forEach(function (l) {
+      var g = quante(sogliaVino[2][l - 1]);
+      var r = document.createElement("div"); r.className = "soglia-riga";
+      r.innerHTML = '<div class="l"></div><button type="button" class="pm">&minus;</button><div class="v"></div><button type="button" class="pm">+</button>';
+      r.querySelector(".l").textContent = LOCALI[l - 1];
+      var sm = document.createElement("small"); sm.textContent = g === null ? "mai stato qui" : "ora " + g + " bott."; r.querySelector(".l").appendChild(sm);
+      var val = r.querySelector(".v");
+      if (sogliaTmp[l] > 0) val.textContent = sogliaTmp[l]; else { val.textContent = "nessun avviso"; val.className = "v nessuna"; }
+      var pm = r.querySelectorAll(".pm");
+      pm[0].addEventListener("click", function () { if (sogliaTmp[l] > 0) { sogliaTmp[l]--; renderSoglia(); } });
+      pm[1].addEventListener("click", function () { sogliaTmp[l]++; renderSoglia(); });
+      val.addEventListener("click", function () {
+        apriTastierino("Avviso: " + LOCALI[l - 1], sogliaTmp[l] || "", 3, function (x) { sogliaTmp[l] = parseInt(x, 10) || 0; renderSoglia(); });
+      });
+      box.appendChild(r);
+    });
+  }
+  function chiudiSoglia() { $("ov-soglia").classList.remove("aperto"); sogliaVino = null; }
+  $("soglia-annulla").addEventListener("click", chiudiSoglia);
+  $("ov-soglia").addEventListener("click", function (e) { if (e.target === $("ov-soglia")) chiudiSoglia(); });
+  $("soglia-ok").addEventListener("click", function () {
+    var v = sogliaVino, cambiate = 0;
+    [1, 2, 3].forEach(function (l) {
+      if (sogliaTmp[l] !== sogliaDi(v[0], l)) { sogliePend[v[0] + "|" + l] = sogliaTmp[l]; cambiate++; }
+    });
+    scrivi("soglie_coda", sogliePend);
+    chiudiSoglia(); renderGiacenze(); renderAvvisi();
+    if (!cambiate) return;
+    if (!navigator.onLine) { toast("Avviso salvato sul telefono (lo invio appena c'è rete)"); return; }
+    inviaSoglie().then(function () { toast(Object.keys(sogliePend).length ? "Avviso salvato sul telefono, invio non riuscito: riprovo dopo" : "Avviso salvato"); });
+  });
+
+  // ------------------------------------------------------------------
+  // Schermata PIN
+  // ------------------------------------------------------------------
+  var pinDigitato = "";
+  function renderPin(errore) {
+    var box = $("pin-punti"); box.innerHTML = ""; box.className = "punti" + (errore ? " errore" : "");
+    var n = cfg ? String(cfg.pin).length : 4;
+    for (var i = 0; i < n; i++) { var s = document.createElement("span"); if (i < pinDigitato.length) s.className = "pieno"; box.appendChild(s); }
+  }
+  tastierino("pin-tasti", function (t) {
+    if (t === "C") { pinDigitato = ""; renderPin(); return; }
+    if (t === "⌫") { pinDigitato = pinDigitato.slice(0, -1); renderPin(); return; }
+    if (!cfg) return;
+    if (pinDigitato.length >= String(cfg.pin).length) return;
+    pinDigitato += t; renderPin();
+    if (pinDigitato.length === String(cfg.pin).length) {
+      if (pinDigitato === String(cfg.pin)) { pinDigitato = ""; sblocca(); }
+      else { renderPin(true); setTimeout(function () { pinDigitato = ""; renderPin(); }, 500); }
+    }
+  }, "C", "⌫");
+  $("pin-setup").addEventListener("click", function () { apriSetup(true); });
+
+  function sblocca() {
+    sbloccata = true; mostra("schermo-app");
+    renderSelettori(); renderBarcode(); renderStato(); renderUltimi(); aggiornaRete(); rifocalizza();
+    renderAvvisi();
+    aggiornaElenco(false).then(function () { return invia(false); }).then(function () { return aggiornaGiacenze(false); });
+  }
+
+  // ------------------------------------------------------------------
+  // Schermata di setup
+  // ------------------------------------------------------------------
+  function apriSetup(annullabile) {
+    sbloccata = false;
+    $("setup-url").value = cfg ? cfg.url : "";
+    $("setup-pin").value = cfg ? cfg.pin : "";
+    $("setup-disp").value = cfg ? (cfg.dispositivo || "") : "iPhone";
+    $("setup-msg").textContent = ""; $("setup-msg").className = "msg";
+    $("setup-annulla").style.display = (annullabile && cfg) ? "inline" : "none";
+    mostra("schermo-setup");
+  }
+  $("setup-annulla").addEventListener("click", function () { pinDigitato = ""; renderPin(); mostra("schermo-pin"); });
+  $("setup-ok").addEventListener("click", function () {
+    var c = { url: pulisciUrl($("setup-url").value), pin: $("setup-pin").value.trim(), dispositivo: $("setup-disp").value.trim() || "iPhone" };
+    var msg = $("setup-msg"); msg.className = "msg";
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(c.url) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(c.url)) {
+      msg.textContent = "L'indirizzo deve essere quello dell'app web di Apps Script, che finisce con /exec."; return;
+    }
+    if (!/^[0-9]{4,8}$/.test(c.pin)) { msg.textContent = "Il PIN deve avere da 4 a 8 cifre."; return; }
+    if (!navigator.onLine) { msg.textContent = "Serve la rete per il primo collegamento."; return; }
+    msg.textContent = "Controllo il collegamento…"; $("setup-ok").disabled = true;
+    chiama("GET", { action: "ping" }, c).then(function () {
+      cfg = c; scrivi("cfg", cfg);
+      msg.className = "msg ok"; msg.textContent = "Collegato!";
+      setTimeout(function () { $("setup-ok").disabled = false; sblocca(); }, 400);
+    }).catch(function (e) {
+      $("setup-ok").disabled = false;
+      msg.textContent = "Non riesco a collegarmi: " + e.message + ". Controlla indirizzo, PIN e che l'app web sia pubblicata per “Chiunque”.";
+    });
+  });
+  $("apri-setup").addEventListener("click", function () { apriSetup(true); });
+
+  // ------------------------------------------------------------------
+  // Pulsanti della schermata principale
+  // ------------------------------------------------------------------
+  $("meno").addEventListener("click", function () { if (corrente.quantita > 1) { corrente.quantita--; renderQuantita(); } });
+  $("piu").addEventListener("click", function () { corrente.quantita++; renderQuantita(); });
+  $("qta").addEventListener("click", function () {
+    apriTastierino("Quantità", "", 4, function (v) { var n = parseInt(v, 10); if (n > 0) { corrente.quantita = n; renderQuantita(); } });
+  });
+  var rap = $("rapidi");
+  RAPIDI.forEach(function (n) {
+    var b = document.createElement("button"); b.type = "button"; b.textContent = n;
+    b.addEventListener("click", function () { corrente.quantita = n; renderQuantita(); });
+    rap.appendChild(b);
+  });
+  $("barcode-mano").addEventListener("click", function () {
+    apriTastierino("Barcode a mano", corrente.barcode, 20, function (v) { if (v) impostaBarcode(v); });
+  });
+  $("box-barcode").addEventListener("click", function (e) {
+    if (e.target.id !== "barcode-mano" && corrente.barcode) { impostaBarcode(""); }
+  });
+  $("salva").addEventListener("click", salvaScansione);
+  $("invia-ora").addEventListener("click", function () { invia(true); });
+  $("aggiorna-elenco").addEventListener("click", function () { aggiornaElenco(true); });
+
+  window.addEventListener("online", function () { aggiornaRete(); if (sbloccata) { invia(false); inviaSoglie(); } });
+  window.addEventListener("offline", aggiornaRete);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && sbloccata) { aggiornaRete(); invia(false); }
+  });
+  setInterval(function () { if (sbloccata && coda().length) invia(false); }, 60000);
+
+  // ------------------------------------------------------------------
+  // Avvio
+  // ------------------------------------------------------------------
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(function () {});
+  }
+  if (!cfg) apriSetup(false);
+  else { renderPin(); mostra("schermo-pin"); }
+})();
+</script>
+</body>
+</html>
